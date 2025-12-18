@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secret Santa – Scratch Reveal</title>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --name-color: #f5f4f4;
+  --scratch-start: #c0c0c0;
+  --scratch-end: #9c9c9c;
+  --accent: #0b6e4f;
+  --threshold: 60;
+  --brush: 30;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+  margin:0;
+  background:#f7f4ee;
+  font-family:Poppins, system-ui, sans-serif;
+}
+
+/* Card container */
+.card-wrap{
+  position:relative;
+  width:712px;
+  height:505px;
+  margin:30px auto;
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 8px 24px rgba(0,0,0,.15);
+  background:#000;
+}
+
+/* Background image */
+.card{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
+
+/* Scratch area */
+.scratch-area{
+  position:absolute;
+  left:160px;
+  top:360px;
+  width:280px;
+  height:70px;
+  border-radius:12px;
+  overflow:hidden;
+  border:2px dashed var(--accent);
+  box-shadow:0 6px 14px rgba(0,0,0,.15);
+}
+
+/* Hidden content */
+.scratch-content{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  background:rgb(133, 11, 11);
+}
+
+.name{
+  font-family:'Playfair Display', serif;
+  font-weight:800;
+  font-size:42px;
+  letter-spacing:.08em;
+  color:var(--name-color);
+  text-transform:uppercase;
+  text-shadow:0 2px 10px rgb(255, 255, 255);
+}
+
+/* Canvas */
+canvas.scratch{
+  position:absolute;
+  inset:0;
+  cursor:pointer;
+  touch-action:none;
+}
+
+/* Controls */
+.helper{
+  max-width:712px;
+  margin:10px auto;
+  text-align:center;
+  color:#555;
+}
+
+.btn{
+  margin:6px;
+  padding:8px 14px;
+  border:none;
+  border-radius:10px;
+  background:var(--accent);
+  color:#fff;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.btn.alt{
+  background:#d4a017;
+  color:#222;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card-wrap">
+  <!-- 🔴 IMPORTANT: Put your image in the same folder -->
+  <img class="card" src="Tap to reveal your giftee.png" alt="Secret Santa Card">
+
+  <div class="scratch-area">
+    <div class="scratch-content">
+      <div class="name">DEEPAK</div>
+    </div>
+    <canvas class="scratch"></canvas>
+  </div>
+</div>
+
+<div class="helper">
+  <button class="btn" id="reset">Reset Scratch</button>
+  <button class="btn alt" id="reveal">Reveal All</button>
+  <div>Tip: Drag (or rub on mobile) to reveal your giftee 🎁</div>
+</div>
+
+<script>
+const container = document.querySelector('.scratch-area');
+const canvas = document.querySelector('.scratch');
+const ctx = canvas.getContext('2d');
+
+let drawing = false;
+let lastX = 0, lastY = 0;
+
+function fitCanvas(){
+  const rect = container.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+
+  const styles = getComputedStyle(document.documentElement);
+  const grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+  grad.addColorStop(0, styles.getPropertyValue('--scratch-start'));
+  grad.addColorStop(1, styles.getPropertyValue('--scratch-end'));
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // metallic dots
+  for(let i=0;i<200;i++){
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()})`;
+    ctx.beginPath();
+    ctx.arc(Math.random()*canvas.width, Math.random()*canvas.height, Math.random()*2+1, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = 'rgba(0,0,0,.6)';
+  ctx.font = '600 18px Poppins';
+  ctx.textAlign = 'center';
+  ctx.fillText('Scratch to reveal', canvas.width/2, canvas.height/2);
+
+  ctx.globalCompositeOperation = 'destination-out';
+}
+
+function pos(e){
+  const r = canvas.getBoundingClientRect();
+  if(e.touches){
+    return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+  }
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+function scratch(x,y){
+  ctx.lineJoin = ctx.lineCap = 'round';
+  ctx.lineWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--brush'));
+  ctx.beginPath();
+  ctx.moveTo(lastX,lastY);
+  ctx.lineTo(x,y);
+  ctx.stroke();
+  lastX=x; lastY=y;
+}
+
+function percentCleared(){
+  const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  let cleared = 0;
+  for(let i=3;i<data.length;i+=4){
+    if(data[i] === 0) cleared++;
+  }
+  return (cleared / (canvas.width * canvas.height)) * 100;
+}
+
+function reveal(){
+  canvas.style.transition = 'opacity .4s';
+  canvas.style.opacity = 0;
+}
+
+canvas.addEventListener('mousedown', e=>{
+  drawing=true;
+  const p = pos(e);
+  lastX=p.x; lastY=p.y;
+  scratch(p.x,p.y);
+});
+
+canvas.addEventListener('mousemove', e=>{
+  if(!drawing) return;
+  const p = pos(e);
+  scratch(p.x,p.y);
+  if(percentCleared() > 60) reveal();
+});
+
+window.addEventListener('mouseup', ()=> drawing=false);
+
+canvas.addEventListener('touchstart', e=>{
+  drawing=true;
+  const p = pos(e);
+  lastX=p.x; lastY=p.y;
+  scratch(p.x,p.y);
+  e.preventDefault();
+},{passive:false});
+
+canvas.addEventListener('touchmove', e=>{
+  if(!drawing) return;
+  const p = pos(e);
+  scratch(p.x,p.y);
+  if(percentCleared() > 60) reveal();
+  e.preventDefault();
+},{passive:false});
+
+canvas.addEventListener('touchend', ()=> drawing=false);
+
+document.getElementById('reset').onclick = ()=>{
+  canvas.style.opacity = 1;
+  fitCanvas();
+};
+
+document.getElementById('reveal').onclick = reveal;
+
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+</script>
+
+</body>
+</html>
